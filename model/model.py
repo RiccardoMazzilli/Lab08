@@ -37,6 +37,7 @@ class Model:
             if prezzi_mese:
                 media = sum(prezzi_mese) / len(prezzi_mese)
                 risultato.append((dist.nome, media))
+        return risultato
 
     def get_sequenza_ottima(self, mese:int):
         """
