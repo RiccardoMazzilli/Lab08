@@ -25,7 +25,18 @@ class Model:
         :param mese: Mese selezionato (un intero da 1 a 12)
         :return: lista di tuple --> (nome del distributore, media), es. (Distributore A, 1.789)
         """
-        # TODO
+        risultato = []
+        for dist in self._distributori:
+            prezzi = dist.get_prezzi()
+            if not prezzi:
+                continue
+
+            #  Prendiamo solo i prezzi del mese richiesto
+            prezzi_mese = [p.prezzo_litro for p in prezzi if p.data.month == mese]
+
+            if prezzi_mese:
+                media = sum(prezzi_mese) / len(prezzi_mese)
+                risultato.append((dist.nome, media))
 
     def get_sequenza_ottima(self, mese:int):
         """
@@ -44,13 +55,63 @@ class Model:
         sequenza_nomi = [f"Giorno {giorno}: {id_to_nome[i]}" for giorno, i in enumerate(self.__sequenza_ottima, start=1)]
         return sequenza_nomi, round(self.__costo_ottimo, 2)
 
+
     def __ricorsione(self, sequenza_parziale, giorno, ultimo_distributore, costo_corrente, prezzi_settimana):
         """ Implementa la ricorsione """
-        # TODO
+
+        #  Condizione terminale: abbiamo calcolato tutti i 7 giorni
+        if giorno > 7:
+            if self.__costo_ottimo == -1 or costo_corrente < self.__costo_ottimo:
+                self.__costo_ottimo = costo_corrente
+
+                # CREAZIONE DI UNA NUOVA LISTA
+                self.__sequenza_ottima = list(sequenza_parziale)
+            return
+
+        # Itero sui distributori disponibili (le chiavi del dizionario)
+        for id_dist in prezzi_settimana.keys():
+            # Calcolo parziale del costo del carburante (100 litri x prezzo del giorno)
+            prezzo_giorno = prezzi_settimana[id_dist][giorno - 1]
+            costo_carburante = prezzo_giorno * 100
+
+            # Costo fisso di spostamento (5€) se cambio distributore
+            costo_spostamento = 0
+            if ultimo_distributore is not None and ultimo_distributore != id_dist:
+                costo_spostamento = 5
+
+            nuovo_costo = costo_corrente + costo_carburante + costo_spostamento
+
+            # Se il costo attuale supera già un ottimo trovato, tagliamo questo ramo
+            if self.__costo_ottimo != -1 and nuovo_costo >= self.__costo_ottimo:
+                continue
+
+            # Aggiungo la scelta parziale
+            sequenza_parziale.append(id_dist)
+
+            # Chiamata ricorsiva per il giorno successivo
+            self.__ricorsione(sequenza_parziale, giorno + 1, id_dist, nuovo_costo, prezzi_settimana)
+
+            # Back-tracking
+            sequenza_parziale.pop()
 
     def __get_prezzi_prima_settimana_mese(self, mese: int):
         """
         Restituisce i prezzi dei primi 7 giorni del mese selezionato per ciascun distributore.
         :return: un dizionario: {id_distributore: [prezzo_giorno1, ..., prezzo_giorno7]}
         """
-        # TODO
+        diz_prezzi = {}
+        for dist in self._distributori:
+            prezzi = dist.get_prezzi()
+            if not prezzi:
+                continue
+
+            # Filtro per mese e per la prima settimana
+            prezzi_sett = [p for p in prezzi if p.data.month == mese and p.data.day <= 7]
+
+            # Ordino cronologicamente per essere certo dell'indice dei giorni
+            prezzi_sett.sort(key=lambda p: p.data.day)
+
+            # Inserisco nel dizionario solo la lista dei valori float
+            diz_prezzi[dist.id] = [p.prezzo_litro for p in prezzi_sett]
+
+        return diz_prezzi
